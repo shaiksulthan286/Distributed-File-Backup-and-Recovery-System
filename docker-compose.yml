@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dfbrs
+      POSTGRES_USER: dfbrs_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dfbrs_pass}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dfbrs_user -d dfbrs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/dfbrs
+      DB_USERNAME: dfbrs_user
+      DB_PASSWORD: ${DB_PASSWORD:-dfbrs_pass}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-this-secret}
+      STORAGE_BASE_DIR: /app/storage
+    ports:
+      - "8080:8080"
+    volumes:
+      - backup-storage:/app/storage
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  backup-storage:
